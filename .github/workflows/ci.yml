@@ -1,4 +1,4 @@
-name: Python CI
+name: Python CI with Auto-Deploy to EC2
 
 on:
   push:
@@ -7,11 +7,11 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: Checkout code
       uses: actions/checkout@v3
 
     - name: Set up Python
@@ -28,4 +28,17 @@ jobs:
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)
         pytest
+
+    - name: Deploy to EC2 if tests pass
+      if: success()
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd taskify-devops
+          git pull origin main
+          pkill -f "python3 app/main.py" || true
+          nohup python3 app/main.py > app.log 2>&1 &
 
